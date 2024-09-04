@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 export function LoginComponent() {
     const [username, setUsername] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [message, setMessage] = useState('');
+    const navigate = useNavigate();
 
     const handleSubmit = async () => {
         try {
@@ -18,8 +20,15 @@ export function LoginComponent() {
 
             const data = await response.json();
 
-            if (response.ok) {
+            if (response.status === 404) {
+                setMessage("User not found, redirecting to sign up...");
+                setTimeout(() => {
+                    navigate('/users/signup');
+                }, 1500); // Redirect after 1.5 seconds
+
+            } else if (response.ok) {
                 setMessage(data.message);
+                // Add logic for successful login, e.g., saving tokens, redirecting, etc.
             } else {
                 setMessage(data.message);
             }
@@ -64,6 +73,15 @@ export function LoginComponent() {
                 Login
             </button>
             {message && <p className='text-center text-red-600'>{message}</p>}
+            <div className='text-center mt-4'>
+                <span className='text-sm text-gray-600'>Don't have an account? </span>
+                <span
+                    onClick={() => navigate("/users/signup")}
+                    className='text-blue-600 cursor-pointer'
+                >
+                    Sign up here
+                </span>
+            </div>
         </div>
     );
 }

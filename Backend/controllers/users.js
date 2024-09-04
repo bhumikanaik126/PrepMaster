@@ -5,29 +5,21 @@ const signUp = async function (req, res) {
     const { username, email, password } = req.body;
 
     try {
-        // Check if a user with the same username already exists
-        let user = await User.findOne({ username });
-        if (user) {
-            return res.status(400).json({ message: "Username already exists" });
-        }
-
-        // Check if a user with the same email already exists
-        user = await User.findOne({ email });
-        if (user) {
-            return res.status(400).json({ message: "Email already exists" });
+        // Check if a user with the same username or email already exists
+        let existingUser = await User.findOne({ $or: [{ username }, { email }] });
+        if (existingUser) {
+            const message = existingUser.username === username
+                ? "Username already exists"
+                : "Email already exists";
+            return res.status(400).json({ message });
         }
 
         // Create a new user
-        user = new User({
-            username: username,
-            email: email,
-            password: password
-        });
-
-        await user.save();
+        const newUser = new User({ username, email, password });
+        await newUser.save();
 
         // Generate a token and set it in a cookie
-        const token = userSignUp(user);
+        const token = userSignUp(newUser);
         res.cookie("auth", token, {
             httpOnly: true,
             secure: true,
@@ -36,24 +28,35 @@ const signUp = async function (req, res) {
 
         return res.status(201).json({ message: "User signed up successfully" });
     } catch (err) {
-        console.log(err);
-        res.status(500).json({ message: "Server error" });
+        console.error(err);
+        return res.status(500).json({ message: "Server error" });
     }
-}
-
+};
 
 const logIn = async function (req, res) {
-    const token = req.cookies.auth; // Retrieve token from cookies
+    const { email, password } = req.body;
 
     try {
-        const valid = userLogIn(token);
+        // Check if the email is registered
+        const user = await User.findOne({ email });
+        if (!user) {
+            return res.status(400).json({ message: "Email not registered" });
+        }
 
-        if (valid) {
-            // Token is valid
+        // Validate the user's password (Assuming userLogIn handles password validation)
+        const token = userLogIn(user, password);
+
+        if (token) {
+            // Set token in a cookie
+            res.cookie("auth", token, {
+                httpOnly: true,
+                secure: true,
+                sameSite: "Strict"
+            });
             return res.status(200).json({ message: "User signed in successfully" });
         } else {
-            // Token is invalid
-            return res.status(401).json({ message: "Invalid token" });
+            // Invalid password
+            return res.status(401).json({ message: "Invalid email or password" });
         }
     } catch (err) {
         console.error(err);
